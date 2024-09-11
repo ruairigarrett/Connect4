@@ -1,0 +1,137 @@
+import pygame
+from pygame.locals import *
+import sys
+import time
+import random
+
+n = 10
+s = 40
+
+pygame.init()
+clock = pygame.time.Clock()
+
+screen = pygame.display.set_mode(size = (s*n, s*n))
+screen.fill((0, 0, 0))
+pygame.display.set_caption('Snake!')
+
+class Snake_segment:
+    def __init__(self, x, y, direction):
+        self.x = x
+        self.y = y
+        self.direction = direction
+        self.type = 'head'
+
+    def draw(self):
+        pict = pygame.image.load(self.type+'.png')
+        pict = pygame.transform.rotate(pict,((self.direction[0]-0.5)**2-0.25 + self.direction[1]*(2*self.direction[1] + 1))*90)
+        pictrect = pict.get_rect()
+        pictrect.center = ((s*self.x + s/2, s*self.y + s/2))
+        screen.blit(pict,pictrect)
+
+class Snake:
+    def __init__(self):
+        self.alive = True
+        self.chain = [Snake_segment(x = 2, y = 2, direction = (0,-1))]
+        self.direction = (0,-1)
+
+    def update(self):
+        for event in events: # Update direction snake is heading in
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RIGHT:
+                    self.direction = (1, 0)
+                if event.key == pygame.K_UP:
+                    self.direction = (0, -1)
+                if event.key == pygame.K_LEFT:
+                    self.direction = (-1, 0)
+                if event.key == pygame.K_DOWN:
+                    self.direction = (0, 1)
+
+        # Add new head to front of snake and make old head a body part
+        self.chain = [Snake_segment((self.chain[0].x + self.direction[0])%n, (self.chain[0].y + self.direction[1])%n, self.direction)] + self.chain
+        if len(self.chain) == 2:
+            self.chain[1].type = 'tail'
+        else:
+            if self.direction == self.chain[1].direction:
+                self.chain[1].type = 'straight'
+            else:
+                self.chain[1].type = 'bend'
+                if ((self.chain[0].x-self.chain[1].x)+2)%n-2==1 and ((self.chain[1].y-self.chain[2].y)+2)%n-2==-1 or ((self.chain[0].y-self.chain[1].y)+2)%n-2==1 and ((self.chain[1].x-self.chain[2].x)+2)%n-2==-1:
+                    self.chain[1].direction = (1,0)
+                if ((self.chain[0].x-self.chain[1].x)+2)%n-2==1 and ((self.chain[1].y-self.chain[2].y)+2)%n-2==1 or ((self.chain[0].y-self.chain[1].y)+2)%n-2==-1 and ((self.chain[1].x-self.chain[2].x)+2)%n-2==-1:
+                    self.chain[1].direction = (0,-1)
+                if ((self.chain[0].x-self.chain[1].x)+2)%n-2==-1 and ((self.chain[1].y-self.chain[2].y)+2)%n-2==1 or ((self.chain[0].y-self.chain[1].y)+2)%n-2==-1 and ((self.chain[1].x-self.chain[2].x)+2)%n-2==1:
+                    self.chain[1].direction = (-1,0)
+                if ((self.chain[0].x-self.chain[1].x)+2)%n-2==-1 and ((self.chain[1].y-self.chain[2].y)+2)%n-2==-1 or ((self.chain[0].y-self.chain[1].y)+2)%n-2==1 and ((self.chain[1].x-self.chain[2].x)+2)%n-2==1:
+                    self.chain[1].direction = (0,1)
+                
+
+        if self.chain[0].x == fruit.x and self.chain[0].y == fruit.y: # Move fruit if head on fruit
+            while self.checkcollision(fruit.x, fruit.y, start = 0):
+                fruit.x = random.randint(0, 9)
+                fruit.y = random.randint(0, 9)
+        else: # Only need to shift rest of snake if head not hit fruit, i.e., if snake doesn't grow
+            del self.chain[-1]
+            if len(self.chain)>1:
+                self.chain[-1].type = 'tail'
+                self.chain[-1].direction = (((self.chain[-2].x-self.chain[-1].x)+2)%n-2, ((self.chain[-2].y-self.chain[-1].y)+2)%n-2)
+
+        if self.checkcollision(self.chain[0].x,self.chain[0].y,1): # If head collides, lose game
+            self.alive = False
+
+    def checkcollision(self, x, y, start): # Check for collision
+        for segment in self.chain[start:]:
+            if segment.x == x and segment.y == y:
+                return True
+        return False
+
+    def draw(self):
+        for part in self.chain:
+            part.draw()
+
+class Fruit:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def draw(self):
+        pict = pygame.image.load('apple.png')
+        pictrect = pict.get_rect()
+        pictrect.center = ((s*self.x + s/2, s*self.y + s/2))
+        screen.blit(pict,pictrect)
+        
+snake = Snake()
+fruit = Fruit(x = 7, y = 3)
+
+while snake.alive:
+    events = pygame.event.get()
+    for event in events:
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+            
+    snake.update()
+    
+    screen.fill((0, 0, 0))
+    fruit.draw()
+    snake.draw()
+    pygame.display.update()
+    clock.tick(5) # Set game speed to 5
+
+screen.fill((200, 0, 50)) 
+
+font = pygame.font.SysFont('arial', 30)
+
+text = font.render('GAME OVER', 1000, (0, 0, 0))
+text_rect = text.get_rect()
+text_rect.centerx = screen.get_rect().centerx
+text_rect.centery = screen.get_rect().centery - 100
+screen.blit(text, text_rect)
+
+score_text = font.render('Score: ' + str(len(snake.chain)-1), 1000, (0, 0, 0))
+score_text_rect = score_text.get_rect()
+score_text_rect.centerx = screen.get_rect().centerx
+score_text_rect.centery = screen.get_rect().centery - 25
+screen.blit(score_text, score_text_rect)
+
+pygame.display.update()
+time.sleep(10)
